@@ -3,13 +3,10 @@
 
 # Dependencies; NPM and Composer
 /node_modules/
-/vendor/
-/build/
-/raw/
 
-# Minified siblings of the raw-served CSS/JS (npm run build:assets)
-*.min.css
-*.min.js
+# Fetched survey data (npm run fetch) and the catalogs baked from it
+/raw/
+/data/
 
 # Apple Junk
 .DS_Store

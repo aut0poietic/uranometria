@@ -1,0 +1,30 @@
+{
+  "name": "uranometria",
+  "version": "1.0.0",
+  "description": "Turns raw astronomical survey data into compact, render-ready JSON catalogs.",
+  "type": "module",
+  "private": true,
+  "license": "MIT",
+  "author": "Jeremy Brand (https://github.com/aut0poietic)",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/aut0poietic/uranometria.git"
+  },
+  "homepage": "https://github.com/aut0poietic/uranometria#readme",
+  "bugs": {
+    "url": "https://github.com/aut0poietic/uranometria/issues"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "fetch": "node bin/fetch.mjs",
+    "parse": "node bin/fetch.mjs && node parsers/constellations.mjs && node parsers/stars.mjs && node parsers/catalog-stars.mjs && node parsers/messier.mjs && node parsers/deepsky.mjs && node parsers/sharpless.mjs",
+    "parse:constellations": "node parsers/constellations.mjs",
+    "parse:stars": "node parsers/stars.mjs",
+    "parse:catalog-stars": "node parsers/catalog-stars.mjs",
+    "parse:messier": "node parsers/messier.mjs",
+    "parse:deepsky": "node parsers/deepsky.mjs",
+    "parse:sharpless": "node parsers/sharpless.mjs"
+  }
+}
