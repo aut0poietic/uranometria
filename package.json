@@ -19,12 +19,14 @@
   },
   "scripts": {
     "fetch": "node bin/fetch.mjs",
-    "parse": "node bin/fetch.mjs && node parsers/constellations.mjs && node parsers/stars.mjs && node parsers/catalog-stars.mjs && node parsers/messier.mjs && node parsers/deepsky.mjs && node parsers/sharpless.mjs",
+    "parse": "node bin/fetch.mjs && node parsers/constellations.mjs && node parsers/stars.mjs && node parsers/catalog-stars.mjs && node parsers/messier.mjs && node parsers/deepsky.mjs && node parsers/sharpless.mjs && node parsers/lbn.mjs && node parsers/extras.mjs",
     "parse:constellations": "node parsers/constellations.mjs",
     "parse:stars": "node parsers/stars.mjs",
     "parse:catalog-stars": "node parsers/catalog-stars.mjs",
     "parse:messier": "node parsers/messier.mjs",
     "parse:deepsky": "node parsers/deepsky.mjs",
-    "parse:sharpless": "node parsers/sharpless.mjs"
+    "parse:sharpless": "node parsers/sharpless.mjs",
+    "parse:lbn": "node parsers/lbn.mjs",
+    "parse:extras": "node parsers/extras.mjs"
   }
 }

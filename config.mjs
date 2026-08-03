@@ -58,6 +58,16 @@ export const sources = {
     sha256: 'f52497aa500ae6dd33de994ab889a38879b900e1fe798e4306bbfdb246a645b0',
     provenance: 'Sharpless 1959 (VizieR VII/20) + SIMBAD TAP identifier/position dumps',
   },
+  // VII/9 is a frozen 1965 digitization, served uncompressed. Its `Name` column
+  // cross-references NGC/IC/Sharpless/Cederblad/DG, which IS the dedup layer —
+  // no separate identifier dump needed the way Sharpless needs SIMBAD.
+  lbn: {
+    file: 'lbn_vii9.dat',
+    url: 'https://cdsarc.cds.unistra.fr/ftp/VII/9/catalog.dat',
+    bytes: 70072,
+    sha256: 'ba501b6d0479bfecf3de55e66bc7aec61aabacce48fafecf480bf0fa31a16c1b',
+    provenance: 'Lynds 1965 Catalogue of Bright Nebulae (VizieR VII/9)',
+  },
   simbadIdents: {
     file: 'simbad_sh2_idents.csv',
     tap: {
@@ -86,6 +96,9 @@ export const sources = {
 // positional flags, plus common names. Committed.
 export const curationFile = 'sharpless_curation.json';
 
+// Hand-entered targets with no machine-readable catalog behind them. Committed.
+export const extrasFile = 'extras.json';
+
 // Downstream consumers copy these by name — renaming one is a breaking change.
 export const outputs = {
   constellations: 'constellations.json',
@@ -94,6 +107,8 @@ export const outputs = {
   messier: 'messier.json',
   deepsky: 'catalog-opengc.json',
   sharpless: 'catalog-sharpless.json',
+  lbn: 'catalog-lbn.json',
+  extras: 'catalog-extras.json',
 };
 
 export const bake = {
@@ -101,6 +116,12 @@ export const bake = {
   magCutoff: 6.5,
   // Outer deep-sky boundary. 13.0 = subjects + useful context; Infinity = full catalog.
   magCeiling: 13.0,
+  // LBN-only admission gate, arcmin. Lynds' 1-6 brightness index is a 1965
+  // Palomar-plate judgement and anticorrelates with what a modern sensor can
+  // stack (LBN 555 is class 6, "barely detectable", and a routine target), so
+  // extent — not brightness — decides. 30′ keeps anything that reads as a shape
+  // and drops the plate specks. 0 admits all 737 LBN-only rows.
+  lbnMinDiamArcmin: 30,
   // false = proper names only. true restores the proper > Bayer > Flamsteed bake.
   labelBayerFallback: false,
   schemaVersion: 1,

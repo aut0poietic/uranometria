@@ -1,0 +1,37 @@
+{
+  "_comment": [
+    "Hand-entered targets that no fetched source can supply. An entry belongs",
+    "here ONLY when the object is a real, commonly imaged target AND no",
+    "machine-readable catalog in config.mjs carries it — the Propeller sits in",
+    "the DWB catalog (Dickel, Wendker & Bieritz 1969), which SIMBAD indexes as",
+    "identifiers but VizieR does not publish as a table, so there is nothing to",
+    "pin a sha256 to. Prefer adding a real source over adding a row here.",
+    "",
+    "Every field is curated, so every entry MUST carry `provenance` naming where",
+    "each value came from, and parsers/extras.mjs fails loud if it is missing.",
+    "`size_arcmin` may be null when no catalog dimension exists and no defensible",
+    "estimate is available; the geometry fields degrade the same way they do for",
+    "size-less rows elsewhere.",
+    "",
+    "These bake to catalog-extras.json as a SEPARATE file — they are the least",
+    "authoritative rows in the repo and consumers should be able to tell."
+  ],
+  "objects": [
+    {
+      "id": "DWB111",
+      "name": "Propeller Nebula",
+      "designations": ["DWB 111", "DWB111", "Simeis 57", "Simeis57", "Sim 57"],
+      "ra": 304.0,
+      "dec": 43.666667,
+      "type": "hii_region",
+      "size_arcmin": 20,
+      "difficulty": "dark",
+      "provenance": {
+        "position": "SIMBAD basic for ident 'DWB 111' (main_id DWB 111, otype HII). Low precision — the value is exactly 20h16m00s +43°40′00″ with no coo_bibcode, inherited from the 1969 DWB survey. Good to roughly an arcminute, no better.",
+        "size_arcmin": "APPROXIMATE. Neither SIMBAD nor any pinned source carries a dimension for this object; 20′ is the long-axis extent the object presents in amateur narrowband imaging. Treat as a planning figure, not a measurement.",
+        "designations": "'DWB 111' is the only catalogue identifier SIMBAD lists. 'Simeis 57' and 'Propeller Nebula' are in universal amateur use but are NOT SIMBAD identifiers — they exist only here, which is the entire reason this entry does.",
+        "type": "SIMBAD otype HII."
+      }
+    }
+  ]
+}

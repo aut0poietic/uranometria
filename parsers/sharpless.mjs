@@ -40,7 +40,8 @@ const sepArcmin = (ra1, de1, ra2, de2) => {
 // so SH2-101 covers Sh2-101; spaced/full-word variants mirror the Caldwell
 // treatment in parsers/deepsky.mjs), plus amateur cross-catalog ids from SIMBAD
 // (plain numbered LBN/LDN/Ced/RCW/Gum/vdB — galactic-coordinate LBN forms and
-// survey cruft are dropped), spaced + compact.
+// survey cruft are dropped), spaced + compact, plus any curated ids no source
+// supplies (Sh2-108 ← IC 1318; see extra_designations in the curation file).
 const PREFIX_CASE = { LBN: 'LBN', LDN: 'LDN', CED: 'Ced', RCW: 'RCW', GUM: 'Gum', VDB: 'vdB' };
 function designationsFor(s) {
   const seen = [];
@@ -55,6 +56,11 @@ function designationsFor(s) {
       add(`${PREFIX_CASE[m[1]]} ${m[2]}`);
       add(`${PREFIX_CASE[m[1]]}${m[2]}`);
     }
+  }
+  for (const id of curation.extra_designations?.[String(s.n)]?.ids ?? []) {
+    add(id);
+    const compact = id.replace(/\s+/g, '');
+    if (compact !== id) add(compact);
   }
   return seen;
 }
@@ -119,6 +125,29 @@ property('canonical-id stability: Wizard, Cave, Bubble, Lagoon, Orion, Eagle, Cr
     [281, 'Orion/M42'], [49, 'Eagle/M16'], [105, 'Crescent/NGC6888']],
   ([n, label]) => !objects.some((o) => o.id === `SH2-${n}`)
     || `SH2-${n} (${label}) is an OpenNGC overlap and must not be minted`);
+
+// Curated names + designations for rows no source describes: the Butterfly is
+// only reachable by "IC 1318" because OpenNGC files that id under the star gam
+// Cyg, and the Ghost has no SIMBAD name at all.
+const butterfly = objects.find((o) => o.id === 'SH2-108');
+check(butterfly && butterfly.name === 'Butterfly Nebula'
+  && butterfly.designations.some((d) => /^IC ?1318$/i.test(d))
+  && butterfly.designations.some((d) => /^LBN ?234$/i.test(d)),
+  `Butterfly (SH2-108) named + reachable by IC 1318 (${JSON.stringify(butterfly?.designations)})`);
+const ghost = objects.find((o) => o.id === 'SH2-136');
+check(ghost && ghost.name === 'Ghost Nebula'
+  && ghost.designations.some((d) => /^vdB ?141$/i.test(d))
+  && Math.abs(ghost.ra - 319.11) < 0.2 && Math.abs(ghost.dec - 68.26) < 0.2,
+  `Ghost (SH2-136) named + carries vdB 141: RA ${ghost?.ra}, Dec ${ghost?.dec}`);
+property('every curated extra_designations entry landed on a baked row',
+  Object.keys(curation.extra_designations ?? {}),
+  (n) => {
+    const row = objects.find((o) => o.id === `SH2-${n}`);
+    if (!row) return `extra_designations["${n}"] targets SH2-${n}, which this bake does not mint`;
+    const missing = curation.extra_designations[n].ids
+      .filter((id) => !row.designations.some((d) => d.toLowerCase() === id.toLowerCase()));
+    return missing.length === 0 || `SH2-${n} is missing curated ids ${JSON.stringify(missing)}`;
+  });
 
 // Degree-scale + null-mag rules hold instead of misfiring.
 const loop = objects.find((o) => o.id === 'SH2-276');

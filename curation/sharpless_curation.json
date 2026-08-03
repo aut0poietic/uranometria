@@ -17,7 +17,13 @@
     "'Common names' entry always wins; these only fill blanks (NGC 7380 has no",
     "name in OpenNGC, so 'Wizard' was unsearchable). Keyed by Sh2 number like",
     "everything else here. Entries whose target row is not in the bake are",
-    "inert and apply automatically if it later enters."
+    "inert and apply automatically if it later enters.",
+    "extra_designations: additional searchable ids for Sharpless-only rows that",
+    "no source supplies. SIMBAD keys these as separate objects and VII/20 has no",
+    "cross-reference column, so a designation in universal amateur use can exist",
+    "in neither — Sh2-108 IS the gamma Cygni / IC 1318 complex, but nothing in",
+    "the fetched sources links the two. Use sparingly and only where the id is",
+    "genuinely the same target; note the reasoning inline."
   ],
   "resolutions": {
     "8": { "resolution": "overlap", "match": "NGC6334", "note": "Cat's Paw — SIMBAD keys the HII region separately from the NGC row" },
@@ -70,14 +76,26 @@
   },
   "common_names": {
     "101": "Tulip Nebula",
+    "108": "Butterfly Nebula",
     "119": "Clamshell Nebula",
     "129": "Flying Bat Nebula",
     "132": "Lion Nebula",
+    "136": "Ghost Nebula",
     "157": "Lobster Claw Nebula",
     "240": "Spaghetti Nebula",
     "261": "Lower's Nebula",
     "264": "Angelfish Nebula",
     "274": "Medusa Nebula",
     "276": "Barnard's Loop"
+  },
+  "extra_designations": {
+    "108": {
+      "ids": ["IC 1318", "gamma Cygni Nebula", "Sadr Region"],
+      "note": "Sh2-108 is the gamma Cygni complex. OpenNGC resolves IC 1318 to the STAR gam Cyg (HD 194093) and types it '*', so the deep-sky bake drops it and the crosswalk — which only considers nebular-typed rows — never flags the pair. SIMBAD does model IC 1318 as HII ('NAME gam Cyg Nebula') but keys it as its own object 1.8° from the Sh2-108 centroid, so no identifier layer links them either. Same complex; IC 1318 B/C are lobes within it."
+    },
+    "136": {
+      "ids": ["vdB 141"],
+      "note": "SIMBAD's main_id is GN 21.15.8 and it lists only [RK68] 107 alongside — no vdB id, though vdB 141 is what imagers call it. Note SIMBAD types this RNe (reflection), while the Sharpless bake types every row hii_region by rule."
+    }
   }
 }

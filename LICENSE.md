@@ -23,8 +23,8 @@ parsers and then share, serve, or ship the output.
 
 ## 1. Source code — MIT
 
-Everything tracked in this repository — `config.mjs`, `bin/`, `lib/`, `parsers/`, and
-`curation/sharpless_curation.json` — is original first-party work.
+Everything tracked in this repository — `config.mjs`, `bin/`, `lib/`, `parsers/`,
+`curation/sharpless_curation.json`, and `curation/extras.json` — is original first-party work.
 
 ```
 MIT License
@@ -72,6 +72,8 @@ The files written into `data/` are **adapted material** produced from the source
 | `messier.json` | OpenNGC | CC BY-SA 4.0 |
 | `catalog-opengc.json` | OpenNGC, plus Sh2 cross-identifiers (see note) | CC BY-SA 4.0 |
 | `catalog-sharpless.json` | Sharpless VII/20 + SIMBAD | **CDS terms — non-commercial**, see §5.4 |
+| `catalog-lbn.json` | Lynds VII/9 | **CDS terms — non-commercial**, see §5.5 |
+| `catalog-extras.json` | Nothing — hand-entered | **MIT**, see §2 note |
 
 **Note on `catalog-opengc.json`.** This file is OpenNGC-derived (CC BY-SA 4.0) with Sh2
 cross-identifiers and curated common names merged onto ~50 rows via
@@ -80,10 +82,20 @@ names — "Sh2-155", "Cave Nebula" — not expressive content, so the file remai
 with CDS acknowledged as the source of those identifiers. The substantial Sharpless
 extraction lives in `catalog-sharpless.json`.
 
-**Keep `catalog-sharpless.json` a separate file.** Its terms differ from the BY-SA catalogs.
-Merging it into `catalog-opengc.json` — or bundling it inside anything advertised as
-"CC BY-SA data" — would mislicense someone else's material. The parsers keep these outputs
-separate deliberately; do not recombine them downstream.
+**Note on `catalog-extras.json`.** This file is derived from no source at all. It is a
+handful of hand-entered targets — positions read off SIMBAD's public object pages, names in
+common amateur usage — for objects whose catalogs were never published as machine-readable
+tables. Individual astronomical facts are not copyrightable and a handful of them is not a
+substantial extraction of any database, so this file is first-party work under §1's MIT
+grant. It is the one output with no share-alike or non-commercial obligation attached. Keep
+it that way: if it ever grows large enough to constitute a substantial extraction from
+another catalog, add that catalog as a real pinned source in `config.mjs` instead, and give
+it its own row above.
+
+**Keep `catalog-sharpless.json` and `catalog-lbn.json` separate files.** Their terms differ
+from the BY-SA catalogs. Merging either into `catalog-opengc.json` — or bundling them inside
+anything advertised as "CC BY-SA data" — would mislicense someone else's material. The
+parsers keep these outputs separate deliberately; do not recombine them downstream.
 
 ### If you share the CC BY-SA outputs
 
@@ -101,13 +113,14 @@ equivalent. Nothing obliges you to publish the JSON at all.
 ## 3. Commercial use — the one real trap
 
 The MIT grant in §1 lets you use this software commercially. That permission **does not
-extend to `catalog-sharpless.json`**, or to any product built from it.
+extend to `catalog-sharpless.json` or `catalog-lbn.json`**, or to any product built from them.
 
-CDS makes the Sharpless and SIMBAD material freely available for scientific and educational
-use but **not for commercial purposes**. If your use is commercial, do not run
-`parsers/sharpless.mjs`, do not ship its output, and strip the Sh2 fields merged into
-`catalog-opengc.json`. Everything else — HYG, Stellarium, OpenNGC — permits commercial use,
-so the remaining five outputs are unaffected.
+CDS makes the Sharpless, Lynds, and SIMBAD material freely available for scientific and
+educational use but **not for commercial purposes**. If your use is commercial, do not run
+`parsers/sharpless.mjs` or `parsers/lbn.mjs`, do not ship their output, and strip the Sh2
+fields merged into `catalog-opengc.json`. Everything else — HYG, Stellarium, OpenNGC, and the
+hand-entered `catalog-extras.json` — permits commercial use, so the remaining six outputs are
+unaffected.
 
 ## 4. Changes made (required by CC BY-SA 4.0)
 
@@ -137,6 +150,14 @@ values are rounded. Per-source:
   Magnitudes null by rule; brightness class mapped to a derived `difficulty`; `capturable`
   true by rule. Objects with an OpenNGC counterpart excluded and recorded as overlap pairs.
   Cross-identifiers sourced from SIMBAD rather than the catalog.
+- **Lynds VII/9 →** Fixed-width records parsed per the VizieR ReadMe. Coordinates precessed
+  from B1950 to J2000 (same FK4→FK5 rotation as VII/20). Filtered to objects with no NGC/IC/
+  Sharpless/Cederblad counterpart — by the catalog's own cross-reference column, or by an LBN
+  number already carried as an alias elsewhere in the bake — and then to a minimum angular
+  extent, discarding 610 of 1,125 rows. Magnitudes null by rule; the 1–6 brightness index
+  retained as `lynds_brightness` and mapped to a derived `difficulty`; `capturable` true by
+  rule. Derived fields added that are not in the source: `difficulty`, `capturable`,
+  `resolves_on`, `fits_fov`, `designations`. The colour index and complexity id are discarded.
 - **SIMBAD →** TAP/ADQL query results for `SH 2-*` identifiers and J2000 positions, used for
   cross-identification and de-duplication against OpenNGC, and for designation assembly.
 
@@ -191,6 +212,17 @@ derived from these sources, these two sentences must appear:
 
 > This research has made use of the VizieR catalogue access tool, CDS, Strasbourg
 > Astronomical Observatory, France.
+
+### 5.5 Lynds Catalogue of Bright Nebulae (VizieR VII/9) — LBN nebulae
+
+A CDS service on the same terms as §5.4: freely available for scientific and educational use,
+**not for commercial purposes**, with the original publication explicitly cited.
+
+- **Catalog:** Lynds, B. T. 1965, *"Catalogue of Bright Nebulae"*, Astrophysical Journal
+  Supplement Series, **12**, 163. Obtained as VizieR catalogue
+  [VII/9](https://vizier.cds.unistra.fr/viz-bin/VizieR?-source=VII/9).
+- The VizieR acknowledgement in §5.4 covers this source too and must accompany anything
+  derived from it.
 
 ## 6. Changing or adding a source
 
