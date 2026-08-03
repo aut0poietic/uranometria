@@ -1,19 +1,12 @@
 // curation/extras.json → catalog-extras.json
 //
-// The escape hatch for real imaging targets that no fetched source carries.
-// The Propeller (DWB 111 / Simeis 57) is the trigger case: SIMBAD indexes the
-// DWB identifiers but VizieR publishes no DWB table, so there is no artifact to
-// pin a sha256 to and nothing for the other parsers to dedup against.
+// The escape hatch for real targets no fetched source carries. The Propeller
+// (DWB 111 / Simeis 57) is the trigger case: SIMBAD indexes the identifiers but
+// VizieR publishes no DWB table, so there is nothing to pin a sha256 to.
 //
-// Everything here is hand-entered and therefore the least authoritative output
-// in the repo — hence a separate file rather than rows smuggled into a bake
-// that otherwise carries a real catalog's provenance end to end. Every entry
-// must document where each of its values came from; the checks below refuse to
-// bake one that does not.
-//
-// This file computes nothing a source could have told us. It adds the derived
-// geometry every other bake adds (unit-sphere x/y/z, per-scope resolves_on and
-// fits_fov) and validates shape.
+// Hand-entered and therefore the least authoritative output here — a separate
+// file, not rows smuggled into a bake that carries real provenance end to end.
+// Every entry must document where its values came from; the checks enforce it.
 
 import { bakeXYZ, round, check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
 import { readExtras } from '../lib/fetch.mjs';
@@ -29,7 +22,6 @@ const objects = entries
     id: e.id,
     name: e.name,
     messier: null,
-    // The id itself is always searchable, mirroring every other bake.
     designations: [e.id, ...e.designations].filter((d, i, a) =>
       a.findIndex((x) => x.toLowerCase() === d.toLowerCase()) === i),
     ra: round(e.ra, 6),
@@ -41,8 +33,7 @@ const objects = entries
     surf_br: null,
     difficulty: e.difficulty,
     capturable: true,
-    // Size-less rows resolve on nothing and are assumed to fit — the same
-    // degradation parsers/deepsky.mjs applies.
+    // Same degradation parsers/deepsky.mjs applies to size-less rows.
     resolves_on: e.size_arcmin === null ? [] : Object.entries(scopes)
       .filter(([, sc]) => (e.size_arcmin * 60) / sc.pxScale >= RESOLVE_PX)
       .map(([k]) => k),
@@ -54,7 +45,6 @@ const objects = entries
   }))
   .sort((a, b) => a.ra - b.ra);
 
-// ---- fail-loud spot checks --------------------------------------------------
 property('every entry is fully specified and documented', entries, (e) => {
   for (const f of ['id', 'name', 'type', 'difficulty']) {
     if (!e[f]) return `${e.id ?? '?'}: missing "${f}"`;
@@ -78,7 +68,6 @@ property('all objects on the unit sphere', objects, (o) => {
 check(new Set(objects.map((o) => o.id)).size === objects.length,
   `${objects.length} entries, all ids unique`);
 
-// The trigger case — the Propeller, 20h16m +43°40′.
 const propeller = objects.find((o) => o.id === 'DWB111');
 check(propeller && propeller.name === 'Propeller Nebula'
   && Math.abs(propeller.ra - 304.0) < 0.1 && Math.abs(propeller.dec - 43.67) < 0.1

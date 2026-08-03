@@ -1,26 +1,13 @@
 // Sharpless (VizieR VII/20) → catalog-sharpless.json
 //
-// Bakes the Sharpless-ONLY HII regions — objects with no counterpart in OpenNGC
-// (the Tulip, Sh2-101, is the trigger case) — as `SH2-<n>`-keyed rows. Objects
-// OpenNGC already carries are EXCLUDED here and keep their NGC/IC key
-// (canonical-id stability: re-keying would orphan downstream bindings); they
-// gain their Sh2 alias in the merge inside parsers/deepsky.mjs instead. Dedup +
-// designation assembly happen at BAKE time.
+// Sharpless-ONLY HII regions as `SH2-<n>` rows. Objects OpenNGC already carries
+// are excluded and keep their NGC/IC key — re-keying would orphan downstream
+// bindings — gaining their Sh2 alias in the parsers/deepsky.mjs merge instead.
+// The dedup lives in lib/sharpless_crosswalk.mjs.
 //
-// The dedup itself (sourcing, the four layers, why raw OpenNGC) lives in
-// lib/sharpless_crosswalk.mjs, shared with parsers/deepsky.mjs so the two
-// parsers stay independently runnable in any order.
-//
-// HII-region field rules (soft/absent mags, degree-scale sizes — the deep-sky
-// mag-driven logic would misfire, so explicit rules instead of coercing):
-//   mag/surf_br: null (VII/20 has none; narrowband targets don't gate on
-//     integrated visual mag anyway).
-//   capturable: true for all — Sharpless membership means a photographable
-//     emission region; `difficulty` carries the hardness signal.
-//   difficulty: brightness class 3 (brightest) → 'moderate', 1–2 → 'dark'.
-//   resolves_on / fits_fov: same per-scope geometry as parsers/deepsky.mjs;
-//     degree-scale objects legitimately fit no single frame (empty fits_fov
-//     = mosaic territory), never coerced.
+// Field rules, because the deep-sky mag-driven logic would misfire on soft mags
+// and degree-scale sizes: mag/surf_br null, capturable true, difficulty from the
+// brightness class. An empty fits_fov is mosaic territory, never coerced.
 
 import { bakeXYZ, round, check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
 import { note, report } from '../lib/ui.mjs';
@@ -36,12 +23,8 @@ const sepArcmin = (ra1, de1, ra2, de2) => {
   return ((2 * Math.asin(Math.sqrt(a))) / r) * 60;
 };
 
-// Designations: own key in the forms people type (case-insensitive combobox,
-// so SH2-101 covers Sh2-101; spaced/full-word variants mirror the Caldwell
-// treatment in parsers/deepsky.mjs), plus amateur cross-catalog ids from SIMBAD
-// (plain numbered LBN/LDN/Ced/RCW/Gum/vdB — galactic-coordinate LBN forms and
-// survey cruft are dropped), spaced + compact, plus any curated ids no source
-// supplies (Sh2-108 ← IC 1318; see extra_designations in the curation file).
+// Own key, plus SIMBAD's plain numbered LBN/LDN/Ced/RCW/Gum/vdB ids (galactic-
+// coordinate forms and survey cruft dropped), plus curated ids no source supplies.
 const PREFIX_CASE = { LBN: 'LBN', LDN: 'LDN', CED: 'Ced', RCW: 'RCW', GUM: 'Gum', VDB: 'vdB' };
 function designationsFor(s) {
   const seen = [];
@@ -90,10 +73,9 @@ const objects = kept
   }))
   .sort((a, b) => a.ra - b.ra);
 
-// ---- fail-loud spot checks --------------------------------------------------
 check(sharpless.length === 313, `VII/20 parsed in full (313 rows, got ${sharpless.length})`);
 
-// Precession sanity: offsets vs SIMBAD J2000 are centroid noise, not a frame error.
+// Offsets vs SIMBAD J2000 should be centroid noise, not a frame error.
 const seps = kept.filter((s) => simbadPos.has(s.n))
   .map((s) => sepArcmin(s.ra, s.dec, simbadPos.get(s.n).ra, simbadPos.get(s.n).dec))
   .sort((a, b) => a - b);
@@ -108,7 +90,6 @@ property('all objects on the unit sphere, ids well-formed', objects, (o) => {
   return true;
 });
 
-// The trigger case — the Tulip, J2000 ≈ 19h59.9m +35°16′.
 const tulip = objects.find((o) => o.id === 'SH2-101');
 check(tulip && tulip.name === 'Tulip Nebula'
   && Math.abs(tulip.ra - 299.96) < 0.2 && Math.abs(tulip.dec - 35.26) < 0.2
@@ -116,9 +97,7 @@ check(tulip && tulip.name === 'Tulip Nebula'
   && tulip.designations.some((d) => /^LBN\s*168$/i.test(d)),
   `Tulip (SH2-101) present: RA ${tulip?.ra}, Dec ${tulip?.dec}, ${JSON.stringify(tulip?.designations)}`);
 
-// Canonical-id stability: known overlaps must NOT mint SH2 rows here.
-// Wizard = NGC 7380 (via LBN 511), Cave = C009 addendum, Bubble = NGC 7635,
-// Lagoon = M8, Orion = NGC 1976 (curated — SIMBAD has no NGC link for it).
+// Known overlaps must NOT mint SH2 rows here.
 property('canonical-id stability: Wizard, Cave, Bubble, Lagoon, Orion, Eagle, Crescent all '
   + 'excluded (aliased in the deep-sky merge)',
   [[142, 'Wizard/NGC7380'], [155, 'Cave/C009'], [162, 'Bubble/NGC7635'], [25, 'Lagoon/M8'],
@@ -126,9 +105,8 @@ property('canonical-id stability: Wizard, Cave, Bubble, Lagoon, Orion, Eagle, Cr
   ([n, label]) => !objects.some((o) => o.id === `SH2-${n}`)
     || `SH2-${n} (${label}) is an OpenNGC overlap and must not be minted`);
 
-// Curated names + designations for rows no source describes: the Butterfly is
-// only reachable by "IC 1318" because OpenNGC files that id under the star gam
-// Cyg, and the Ghost has no SIMBAD name at all.
+// The Butterfly is only reachable by "IC 1318" because OpenNGC files that id under
+// the star gam Cyg; the Ghost has no SIMBAD name at all.
 const butterfly = objects.find((o) => o.id === 'SH2-108');
 check(butterfly && butterfly.name === 'Butterfly Nebula'
   && butterfly.designations.some((d) => /^IC ?1318$/i.test(d))
@@ -149,7 +127,6 @@ property('every curated extra_designations entry landed on a baked row',
     return missing.length === 0 || `SH2-${n} is missing curated ids ${JSON.stringify(missing)}`;
   });
 
-// Degree-scale + null-mag rules hold instead of misfiring.
 const loop = objects.find((o) => o.id === 'SH2-276');
 check(loop && loop.name === "Barnard's Loop" && loop.size_arcmin === 1200
   && loop.fits_fov.length === 0 && loop.capturable && loop.mag === null,

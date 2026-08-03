@@ -1,34 +1,23 @@
 // Lynds Bright Nebulae (VizieR VII/9) → catalog-lbn.json
 //
-// Bakes the LBN-ONLY nebulae — the ones with no NGC/IC/Sharpless/Cederblad
-// counterpart anywhere else in this repo's output. Same contract as
-// parsers/sharpless.mjs: objects another bake already carries are EXCLUDED
-// here and keep their existing key, so nothing is ever double-listed and no
-// canonical id moves. LBN 555 is the trigger case — a 145′ Cepheus field with
-// no cross-reference in any catalog we previously fetched.
+// LBN-ONLY nebulae: the ones no other bake here carries. Same contract as
+// parsers/sharpless.mjs — duplicates are excluded and keep their existing key,
+// so no canonical id ever moves.
 //
-// Dedup layers (an LBN object is a duplicate if ANY hits):
-//   A. VII/9's own `Name` column names an NGC/IC/S(harpless)/C(ederblad)
-//      counterpart. This is the catalog's built-in crosswalk and covers 388 of
-//      1125 rows — the reason this bake needs no SIMBAD dump of its own.
-//   B. The LBN number already appears as an alias on a raw-OpenNGC row's
-//      Identifiers column (the deep-sky bake surfaces those as "LBN 548").
-//   C. The LBN number is one SIMBAD lists for a Sharpless object, which the
-//      Sharpless bake already emits as an alias (Sh2-101 carries LBN 168).
-// Layers B and C read the same raws parsers/deepsky.mjs and parsers/sharpless.mjs
-// read, never their output — every parser stays independently runnable.
+// An LBN object is a duplicate if ANY layer hits:
+//   A. VII/9's own `Name` column names an NGC/IC/Sharpless/Cederblad counterpart
+//      (388 of 1125 rows — why this bake needs no SIMBAD dump of its own).
+//   B. The number is already an alias on a raw-OpenNGC row's Identifiers column.
+//   C. SIMBAD lists the number for a Sharpless object (Sh2-101 carries LBN 168).
+// B and C read raws, never the other bakes' output.
 //
-// There is deliberately NO positional layer. Sharpless has one (a flag routed
-// through hand curation) because 313 rows is curatable; 737 is not, and Lynds'
-// plate-measured extents are far too coarse to resolve a near-miss into a
-// verdict. The identifier layers are exact; a residual duplicate here is a
-// missing cross-reference in VII/9, not a silent merge.
+// No positional layer, deliberately: 737 rows is not curatable the way Sharpless'
+// 313 is, and Lynds' plate extents are too coarse to turn a near-miss into a
+// verdict. The identifier layers are exact; a residual duplicate means a missing
+// VII/9 cross-reference, not a silent merge.
 //
-// Field rules mirror the Sharpless bake (diffuse nebulae, no integrated mag):
-//   mag/surf_br/redshift: null. capturable: true for everything admitted.
-//   difficulty: Lynds brightness 1-2 → 'moderate', 3-4 → 'dark', 5-6 → 'dark'.
-//     The index is a 1965 blue-plate judgement, so it never promotes to 'easy'.
-//   size_arcmin: Diam1, the largest dimension.
+// Field rules mirror the Sharpless bake. Brightness never promotes to 'easy' — it
+// is a 1965 plate judgement.
 
 import { bakeXYZ, round, check, checkCount, property, todayISO, writeOutput, precessB1950toJ2000, parseCsv } from '../lib/shared.mjs';
 import { readRawText } from '../lib/fetch.mjs';
@@ -36,7 +25,7 @@ import { num, note, report } from '../lib/ui.mjs';
 import { loadSharplessCrosswalk } from '../lib/sharpless_crosswalk.mjs';
 import { bake, scopes, RESOLVE_PX, sources, outputs } from '../config.mjs';
 
-// VII/9 fixed-width byte columns, per the VizieR ReadMe.
+// Byte columns per the VizieR ReadMe.
 const fw = (line, a, b) => line.slice(a - 1, b).trim();
 const rows = readRawText('lbn')
   .split(/\r?\n/).filter((l) => l.trim().length > 0)
@@ -56,7 +45,7 @@ const rows = readRawText('lbn')
   });
 note(`VII/9 rows parsed: ${num(rows.length)}`);
 
-// ---- Layers B and C: LBN numbers other bakes already carry -----------------
+// Layers B and C: numbers other bakes already carry.
 const normId = (s) => s.replace(/\s+/g, ' ').trim().toUpperCase().replace(/^([A-Z]+) 0+(\d)/, '$1 $2');
 const lbnNumber = (id) => {
   const m = normId(id).match(/^LBN (\d+)$/);
@@ -82,7 +71,6 @@ for (const [sh2, ids] of simbadIds) {
   }
 }
 
-// ---- dedup + size gate ------------------------------------------------------
 const duplicates = [];
 const undersized = [];
 const kept = [];
@@ -123,7 +111,6 @@ const objects = kept
   }))
   .sort((a, b) => a.ra - b.ra);
 
-// ---- fail-loud spot checks --------------------------------------------------
 check(rows.length === 1125, `VII/9 parsed in full (1125 rows, got ${rows.length})`);
 check(rows.filter((r) => r.xref).length === 388,
   `${rows.filter((r) => r.xref).length} rows carry a VII/9 cross-reference (expected 388)`);
@@ -136,22 +123,18 @@ property('all objects on the unit sphere, ids well-formed, coords in range', obj
   return true;
 });
 
-// The trigger case — LBN 555, B1950 21h00m +79°00′ → J2000 ≈ 314.5 +79.2
-// (SIMBAD's LBN 113.08+21.10). Brightness 6 is exactly why the gate is on size.
+// The trigger case. Brightness 6 is exactly why the gate is on size.
 const lbn555 = objects.find((o) => o.id === 'LBN555');
 check(lbn555 && Math.abs(lbn555.ra - 314.5) < 0.5 && Math.abs(lbn555.dec - 79.2) < 0.2
   && lbn555.size_arcmin === 145 && lbn555.lynds_brightness === 6 && lbn555.capturable,
   `LBN 555 present: RA ${lbn555?.ra}, Dec ${lbn555?.dec}, ${lbn555?.size_arcmin}′, class ${lbn555?.lynds_brightness}`);
 
-// Dedup worked examples — every one of these is carried by another bake and
-// must NOT be minted here. 511 → the Wizard (NGC 7380), 548 → the Bubble
-// (NGC 7635), 168 → the Tulip (Sh2-101), 234 → the gamma Cyg region (Sh2-108).
+// 511 → Wizard, 548 → Bubble, 168 → Tulip, 234 → the gamma Cyg region.
 property('canonical-id stability: LBN numbers other bakes already carry are excluded',
   [511, 548, 168, 234, 274],
   (n) => !objects.some((o) => o.id === `LBN${n}`) || `LBN${n} was minted despite being a duplicate`);
 
-// No object may appear both here and in another bake — the property the three
-// identifier layers exist to guarantee.
+// The property the three identifier layers exist to guarantee.
 property('no minted object is claimed by another bake', objects,
   (o) => !claimed.has(Number(o.id.slice(3))) || `${o.id} is also ${claimed.get(Number(o.id.slice(3)))}`);
 

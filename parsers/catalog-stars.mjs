@@ -1,20 +1,12 @@
 // stars.json labeled rows ⨝ HYG raw → catalog-stars.json
 //
-// The catalog is things that exist and could be captured; named stars enter the
-// CATALOG and become pickable — they are not subjects until someone shoots them.
+// Set equality BY CONSTRUCTION: no re-filtering of HYG. Takes exactly what
+// stars.json labeled and joins back for designation columns only; coords and mags
+// ride stars.json verbatim. Run parsers/stars.mjs first.
 //
-// Set equality BY CONSTRUCTION: this script does not re-filter HYG. It takes
-// exactly the stars stars.json labeled (proper names only) and joins back to
-// HYG raw solely for the designation columns (bayer/con/hip/hd). Coordinates
-// and magnitudes are NOT recomputed — they ride stars.json verbatim. Run
-// parsers/stars.mjs first; a missing or stale stars.json fails loud here.
-//
-// Canonical ids: spaceless HIP form ("HIP91262" — ids are URL-visible verbatim),
-// with an HD fallback for the 7 proper-named binary companions whose HIP number
-// rode the primary's HYG row (Castor B et al. — asserted BY VALUE below, so a
-// HYG rerun that shifts the set fails loud instead of silently minting different
-// ids). "p Eridani" is genuinely two rows — HYG names both components of the
-// double — kept as two catalog rows with distinct ids.
+// Ids are the spaceless HIP form (URL-visible verbatim), with an HD fallback for
+// the 7 proper-named binary companions whose HIP rode the primary's row. "p
+// Eridani" is genuinely two rows and stays two.
 
 import { readFileSync } from 'node:fs';
 import { parseCsv, check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
@@ -25,9 +17,8 @@ import { bake, paths, sources, outputs } from '../config.mjs';
 
 const STARS = new URL(outputs.stars, paths.data);
 
-// The 7 HIP-less proper-named stars and the HD ids they mint. A HYG rerun that
-// changes this set fails the assert on purpose — new HIP-less names mean new id
-// decisions, not silent fallbacks.
+// A HYG rerun that changes this set fails on purpose: new HIP-less names mean new
+// id decisions, not silent fallbacks.
 const EXPECTED_HD_IDS = new Set([
   'HD10361', // p Eridani (Gl 66A — the HIP-less component of the double)
   'HD60178', // Castor B
@@ -38,7 +29,6 @@ const EXPECTED_HD_IDS = new Set([
   'HD155886', // Guniibuu B
 ]);
 
-// ---- Inputs ----
 let labeled;
 try {
   const { stars } = JSON.parse(readFileSync(STARS, 'utf8'));
@@ -50,10 +40,10 @@ try {
 note(`stars.json labeled rows: ${labeled.length}`);
 
 const rows = parseCsv(readRawText('hyg'));
-const byHip = new Map(); // hip → first HYG row (same first-row-wins rule as parsers/stars.mjs)
-const hiplessByProper = new Map(); // proper → HYG rows with an empty hip column
+const byHip = new Map(); // first row wins, as in parsers/stars.mjs
+const hiplessByProper = new Map();
 for (const row of rows) {
-  if (row.id === '0') continue; // Sol — excluded everywhere
+  if (row.id === '0') continue; // Sol
   if (/^\d+$/.test(row.hip)) {
     const hip = Number(row.hip);
     if (!byHip.has(hip)) byHip.set(hip, row);
@@ -63,7 +53,6 @@ for (const row of rows) {
   }
 }
 
-// ---- Join + bake ----
 const objects = [];
 for (const s of labeled) {
   let row;
@@ -76,8 +65,7 @@ for (const s of labeled) {
     prefix = 'HIP';
     num = s.id;
   } else {
-    // HIP-less labeled star: exactly one HIP-less HYG row may carry this
-    // proper name, else the join is ambiguous and a human decides.
+    // Exactly one HIP-less row may carry this name, else a human decides.
     const candidates = hiplessByProper.get(s.label) ?? [];
     if (candidates.length !== 1) {
       console.error(`✗ Ambiguous HIP-less join for "${s.label}": ${candidates.length} candidate rows. STOP.`);
@@ -95,15 +83,14 @@ for (const s of labeled) {
     process.exit(1);
   }
 
-  // Designations: proper name, Bayer form, catalog number padded ("HIP 91262")
-  // + bare ("HIP91262"). De-duped case-insensitively.
+  // Name, Bayer form, catalog number padded and bare.
   const designations = [];
   const add = (d) => {
     const v = String(d ?? '').trim();
     if (v && !designations.some((x) => x.toLowerCase() === v.toLowerCase())) designations.push(v);
   };
   add(s.label);
-  if (row.bayer && row.con) add(formatBayer(row.bayer, row.con)); // null (unmapped) drops out in add()
+  if (row.bayer && row.con) add(formatBayer(row.bayer, row.con)); // null drops out in add()
   add(`${prefix} ${num}`);
   add(id);
 
@@ -121,9 +108,8 @@ for (const s of labeled) {
   });
 }
 
-objects.sort((a, b) => a.ra - b.ra); // RA order, same convention as the deep-sky bake
+objects.sort((a, b) => a.ra - b.ra);
 
-// ---- Spot checks (fail loud) ----
 check(true, 'join integrity: every HYG proper matched its baked label (asserted per row)');
 check(objects.length === labeled.length,
   `set equality: ${objects.length} catalog rows == ${labeled.length} stars.json labels (by construction)`);
@@ -139,7 +125,6 @@ check(objects.every((o) => /^(HIP|HD)\d+$/.test(o.id)), 'ids: all spaceless HIP/
 check(objects.every((o) => o.designations.length >= 3 && o.designations.every((d) => d.length > 0)),
   'designations: every star carries ≥3 non-empty forms (name + padded + bare at minimum)');
 check(objects.every((o) => o.designations.includes(o.id)), 'designations: every star carries its own id');
-// Worked examples
 {
   const vega = objects.find((o) => o.id === 'HIP91262');
   check(vega && vega.name === 'Vega' && Math.abs(vega.mag - 0.03) < 0.01
@@ -157,7 +142,6 @@ check(objects.every((o) => o.designations.includes(o.id)), 'designations: every 
     && pEri.some((o) => o.id === 'HIP7751') && pEri.some((o) => o.id === 'HD10361'),
     `p Eridani double kept as two rows: ${pEri.map((o) => o.id).join(' + ')}`);
 }
-// Property + ranges (values ride stars.json, which already passed — cheap re-assert)
 let maxNormErr = 0;
 property('all rows on the unit sphere, coords in range', objects, (o) => {
   const err = Math.abs(o.x ** 2 + o.y ** 2 + o.z ** 2 - 1);

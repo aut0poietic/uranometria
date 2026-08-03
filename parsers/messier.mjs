@@ -1,9 +1,7 @@
 // OpenNGC → messier.json
 //
-// - OpenNGC is SEMICOLON-delimited; RA/Dec are sexagesimal strings → decimal degrees.
-// - The Messier number lives in the zero-padded `M` cross-ref column ("031" = M31).
-// - M40 and M45 have no NGC/IC number and live in the addendum file — hence both CSVs.
-// - Type codes are normalized to flat types; missing fields → null, never dropped.
+// The Messier number lives in the zero-padded `M` cross-ref column ("031" = M31).
+// M40 and M45 have no NGC/IC number and live in the addendum — hence both CSVs.
 
 import { parseCsv, sexagesimalToDegrees, bakeXYZ, round, check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
 import { readRawText } from '../lib/fetch.mjs';
@@ -35,9 +33,8 @@ function toObject(row) {
   };
 }
 
-// ---- Index every row by name, and collect the Messier backdrop ----
-const byName = new Map(); // "NGC0224" / "Mel022" → parsed object
-const messier = new Map(); // "M31" → parsed object
+const byName = new Map();
+const messier = new Map();
 for (const row of rows) {
   const obj = toObject(row);
   if (!obj) continue;
@@ -46,9 +43,8 @@ for (const row of rows) {
     messier.set(obj.messier, obj);
   }
 }
-// M102 is historically disputed (duplicate of M101 vs. NGC 5866); OpenNGC takes
-// no position and leaves its M column empty. We adopt the mainstream
-// identification M102 = NGC 5866, mapped explicitly here.
+// M102 is disputed (M101 vs NGC 5866) and OpenNGC leaves its M column empty.
+// We adopt the mainstream identification.
 if (!messier.has('M102')) {
   const ngc5866 = byName.get('NGC5866');
   if (!ngc5866) { console.error('✗ NGC5866 not found for the M102 mapping'); process.exit(1); }
@@ -58,7 +54,6 @@ if (!messier.has('M102')) {
 const messierList = [...messier.values()].sort(
   (a, b) => Number(a.messier.slice(1)) - Number(b.messier.slice(1)));
 
-// ---- Spot checks ----
 check(messierList.length === 110, `110 Messier objects found (got ${messierList.length})`);
 const m31 = messier.get('M31');
 check(m31 && Math.abs(m31.ra - 10.685) < 0.01 && Math.abs(m31.dec - 41.269) < 0.01,

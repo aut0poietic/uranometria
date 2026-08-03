@@ -1,11 +1,8 @@
 // Stellarium `modern` skyculture → constellations.json
 //
-// RUN FIRST: parsers/stars.mjs reads this output to build the union set.
+// RUN FIRST: parsers/stars.mjs reads this output for its union set.
 //
-// Format (verified): top-level `constellations[]`, each { id, lines, common_name }.
-//   - id "CON modern Ori" → abbr = last whitespace token
-//   - common_name.native = display name
-//   - lines are POLYLINES (ordered arrays of HIP ints) → expand to N−1 segments
+// `lines` are polylines (ordered HIP arrays) → expanded to N−1 segments.
 
 import { check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
 import { readRawText } from '../lib/fetch.mjs';
@@ -26,7 +23,6 @@ const constellations = sky.constellations.map((c) => {
   return { name, abbr, lines };
 });
 
-// ---- Spot checks (fail loud) ----
 check(constellations.length === 88, `88 constellations parsed (got ${constellations.length})`);
 
 property('abbreviations are 2–4 characters', constellations,
