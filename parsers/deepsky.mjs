@@ -15,6 +15,15 @@ import { bake, scopes, RESOLVE_PX, sources, outputs, TYPE_MAP } from '../config.
 const KEEP = new Set(['G', 'OCl', 'GPair', 'GCl', 'PN', 'Neb', 'HII', 'Cl+N',
   'RfN', 'GTrpl', 'GGroup', 'SNR', 'EmN']);
 
+// Messier objects the type filter would otherwise drop: M24 is a Milky Way star
+// cloud (*Ass), M40 a double star, M73 a four-star asterism. People search the
+// Messier list expecting all 110.
+const TYPE_EXEMPT = new Set(['IC4715', 'M040', 'NGC6994']);
+
+// M102 is disputed (M101 vs NGC 5866) and OpenNGC leaves its M column empty.
+// Same mainstream identification parsers/messier.mjs adopts.
+const MESSIER_BY_ID = { NGC5866: 'M102' };
+
 const EXTENDED = new Set(['G', 'GPair', 'GTrpl', 'GGroup', 'Neb', 'RfN']); // want resolved structure
 const EMISSION = new Set(['EmN', 'HII', 'Cl+N']);                          // duo-band filter → deeper
 const COMPACT = new Set(['GCl', 'PN', 'OCl', 'SNR']);                      // fine when small/bright
@@ -119,7 +128,7 @@ function fitsFov(sizeArcmin) {
 
 function toObject(row) {
   const type = TYPE_MAP[row.Type] ?? 'other';
-  if (!KEEP.has(row.Type)) return null;
+  if (!KEEP.has(row.Type) && !TYPE_EXEMPT.has(row.Name)) return null;
   if (!row.RA || !row.Dec) return null;
   const mag = numOrNull(row['V-Mag']) ?? numOrNull(row['B-Mag']);
   if (mag === null && !NULLMAG_EXEMPT.has(row.Type)) return null;
@@ -129,7 +138,7 @@ function toObject(row) {
   const dec = sexagesimalToDegrees(row.Dec, false);
   const size = numOrNull(row.MajAx);
   const surfBr = numOrNull(row.SurfBr);
-  const messier = row.M ? `M${Number(row.M)}` : null;
+  const messier = row.M ? `M${Number(row.M)}` : MESSIER_BY_ID[row.Name] ?? null;
 
   return {
     id: row.Name,
@@ -211,6 +220,15 @@ check(crab && crab.messier === 'M1' && crab.type === 'supernova_remnant'
 const m31 = byName.get('NGC0224');
 check(m31 && m31.capturable && m31.resolves_on.includes('s50'),
   `M31 (NGC0224) capturable and resolves on S50`);
+
+const messierPresent = new Set(objects.filter((o) => o.messier).map((o) => o.messier));
+const messierMissing = Array.from({ length: 110 }, (_, i) => `M${i + 1}`)
+  .filter((m) => !messierPresent.has(m));
+check(messierMissing.length === 0,
+  `all 110 Messier objects survive the type filter${messierMissing.length ? ` (missing ${messierMissing.join(', ')})` : ''}`);
+const m24 = byName.get('IC4715');
+check(m24 && m24.messier === 'M24' && m24.designations.includes('M24'),
+  `M24 (IC4715, *Ass) kept and searchable as "M24" (${JSON.stringify(m24?.designations)})`);
 
 check(objects.every((o) => o.designations.length >= 1),
   'property: every object carries at least its own id in designations');
