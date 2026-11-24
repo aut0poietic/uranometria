@@ -142,7 +142,7 @@ check(duplicates.length > 380 && kept.length === rows.length - duplicates.length
   `${duplicates.length} duplicates excluded, ${undersized.length} under the ${bake.lbnMinDiamArcmin}′ gate, ${kept.length} minted`);
 check(objects.every((o) => o.capturable && o.mag === null && o.size_arcmin >= bake.lbnMinDiamArcmin),
   'property: every object is capturable, mag-less, and clears the size gate');
-check(objects.length > 400 && objects.length < 700,
+check(objects.length > 400 && objects.length <= 737,
   `object count in expected band for a ${bake.lbnMinDiamArcmin}′ gate (got ${objects.length})`);
 
 const byDiff = objects.reduce((m, o) => ((m[o.difficulty] = (m[o.difficulty] || 0) + 1), m), {});

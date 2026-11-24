@@ -141,8 +141,11 @@ values are rounded. Per-source:
   asterisms, and all artwork discarded. **No Stellarium artwork is used or redistributed.**
 - **OpenNGC →** Sexagesimal RA/Dec strings converted to decimal degrees. Messier numbers
   un-zero-padded; M102 explicitly mapped to NGC 5866. Type codes normalised to an internal
-  vocabulary. Filtered to magnitude ≤ 13 plus mag-less nebular types, and to imaging-relevant
-  types. Rows sorted by RA and de-duplicated by name. Derived fields added that are not in
+  vocabulary. Filtered to magnitude ≤ 15 plus mag-less nebular types, and to imaging-relevant
+  types; rows with a common name or Caldwell number bypass the magnitude filter, and named
+  stellar associations and dark nebulae bypass the type filter. Some display names replaced
+  or added by hand (`curation/common_names.json`), including removing OpenNGC's "Flame
+  Nebula" from IC 434. Rows sorted by RA and de-duplicated by name. Derived fields added that are not in
   the source: `difficulty`, `capturable`, `resolves_on`, `fits_fov`, and a `designations`
   alias list assembled from the `Identifiers` column under an allow-list.
 - **Sharpless VII/20 →** Fixed-width records parsed per the VizieR ReadMe. Coordinates
@@ -153,8 +156,7 @@ values are rounded. Per-source:
 - **Lynds VII/9 →** Fixed-width records parsed per the VizieR ReadMe. Coordinates precessed
   from B1950 to J2000 (same FK4→FK5 rotation as VII/20). Filtered to objects with no NGC/IC/
   Sharpless/Cederblad counterpart — by the catalog's own cross-reference column, or by an LBN
-  number already carried as an alias elsewhere in the bake — and then to a minimum angular
-  extent, discarding 610 of 1,125 rows. Magnitudes null by rule; the 1–6 brightness index
+  number already carried as an alias elsewhere in the bake — discarding 390 of 1,125 rows. Magnitudes null by rule; the 1–6 brightness index
   retained as `lynds_brightness` and mapped to a derived `difficulty`; `capturable` true by
   rule. Derived fields added that are not in the source: `difficulty`, `capturable`,
   `resolves_on`, `fits_fov`, `designations`. The colour index and complexity id are discarded.

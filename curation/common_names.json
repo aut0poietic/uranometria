@@ -1,0 +1,62 @@
+{
+  "_comment": [
+    "Hand-curated display names for OpenNGC rows whose 'Common names' column",
+    "carries more than one name. OpenNGC lists those names alphabetically, not",
+    "by usage, and parsers/deepsky.mjs used to keep the first — which handed M17",
+    "'Checkmark Nebula' over 'Swan', M42 'Great Orion Nebula' over 'Orion', and",
+    "M11 a French phrase over 'Wild Duck Cluster' (Jer, 2026-08-14).",
+    "",
+    "Every upstream common name is now searchable regardless: the ones that are",
+    "not the display name are appended to `designations`. This file only decides",
+    "which one is the title, and adds names no source carries.",
+    "",
+    "preferred: keyed by OpenNGC id. `name` becomes the row's display name. Only",
+    "list a row where the alphabetical first is the wrong title — a row absent",
+    "from here keeps OpenNGC's first name. A name NOT in the upstream list is",
+    "allowed (it then also enters `designations`), but say why in `note`.",
+    "parsers/deepsky.mjs FAILS LOUD on an entry whose id is not in the bake, or",
+    "whose id has no OpenNGC common name at all — both mean this file went stale.",
+    "",
+    "extra_aliases: searchable names for rows where OpenNGC's list is incomplete",
+    "or oddly cased. Case-insensitive dedupe against the upstream names, and",
+    "these are added first, so listing 'Omega Nebula' here is also how the",
+    "upstream 'omega Nebula' spelling gets fixed for display.",
+    "",
+    "named: titles for rows OpenNGC leaves unnamed. FAILS LOUD once OpenNGC",
+    "names the row — move it to `preferred` then.",
+    "",
+    "rejected: upstream names that are wrong for the row. Dropped from the title",
+    "and from `designations`. FAILS LOUD once OpenNGC no longer carries the name.",
+    "",
+    "Any name here (or upstream) makes the row a listed target: it skips the",
+    "magnitude ceiling, so naming a row is how a faint favourite gets in."
+  ],
+
+  "preferred": {
+    "NGC6618": { "name": "Swan Nebula", "note": "M17. Swan and Omega are the names in use; 'Checkmark' won only on the alphabet. Omega is the older name and rides along in extra_aliases." },
+    "NGC1976": { "name": "Orion Nebula", "note": "M42. 'Great Orion Nebula' is the archaic long form." },
+    "NGC0650": { "name": "Little Dumbbell Nebula", "note": "M76. Barbell and Cork are both in circulation but Little Dumbbell is the name it is catalogued under everywhere amateur." },
+    "NGC6705": { "name": "Wild Duck Cluster", "note": "M11. OpenNGC's first entry is the French 'Amas de l'Ecu de Sobieski'." },
+    "NGC2070": { "name": "Tarantula Nebula", "note": "'30 Dor Cluster' is the embedded cluster designation, not the nebula's popular name." },
+    "NGC0253": { "name": "Sculptor Galaxy", "note": "Not in OpenNGC's list at all, which offers only 'Sculptor Filament' (a different, larger structure) and 'Silver Coin'. Sculptor Galaxy is the standard name; both upstream names stay searchable." },
+    "NGC2632": { "name": "Beehive Cluster", "note": "M44. OpenNGC has the bare 'Beehive'; the cluster is universally 'Beehive Cluster'. 'Praesepe' stays searchable." },
+    "IC0443": { "name": "Jellyfish Nebula", "note": "OpenNGC's only name is 'Gem A', the radio-source label. Jellyfish is the name imagers use." },
+    "IC2602": { "name": "Southern Pleiades", "note": "C102. OpenNGC has only 'tet Car Cluster' (theta Carinae Cluster); Southern Pleiades is the popular name." }
+  },
+
+  "named": {
+    "IC0063": { "name": "Ghost of Cassiopeia", "note": "The brighter, H-alpha half of the gamma Cas pair. Sh2-185 and LBN 622/623 resolve to this row." },
+    "IC0059": { "name": "Ghost of Cassiopeia", "note": "The fainter, reflection half of the same gamma Cas pair; both are imaged and labelled together." },
+    "NGC2024": { "name": "Flame Nebula", "note": "OpenNGC puts 'Flame Nebula' on IC 434 instead (see rejected). NGC 2024 is the Flame." }
+  },
+
+  "rejected": {
+    "IC0434": { "names": ["Flame Nebula"], "note": "The Flame is NGC 2024. IC 434 is the emission strip the Horsehead (B 33) is silhouetted against." }
+  },
+
+  "extra_aliases": {
+    "NGC6618": ["Omega Nebula", "Horseshoe Nebula"],
+    "IC0434": ["Horsehead Nebula"],
+    "IC0063": ["LBN 623", "LBN623"]
+  }
+}

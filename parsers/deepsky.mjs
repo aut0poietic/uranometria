@@ -5,13 +5,13 @@
 // not filtered — consumers filter downstream.
 
 import { parseCsv, sexagesimalToDegrees, bakeXYZ, round, check, checkCount, property, todayISO, writeOutput } from '../lib/shared.mjs';
-import { readRawText } from '../lib/fetch.mjs';
+import { readRawText, readCommonNames } from '../lib/fetch.mjs';
 import { num, note, report } from '../lib/ui.mjs';
 import { loadSharplessCrosswalk, sh2Variants } from '../lib/sharpless_crosswalk.mjs';
 import { bake, scopes, RESOLVE_PX, sources, outputs, TYPE_MAP } from '../config.mjs';
 
 // Drops stars, doubles, duplicates, non-existent, associations, novae, and dark
-// nebulae (no emission to stack).
+// nebulae (no emission to stack) — except listed rows, below.
 const KEEP = new Set(['G', 'OCl', 'GPair', 'GCl', 'PN', 'Neb', 'HII', 'Cl+N',
   'RfN', 'GTrpl', 'GGroup', 'SNR', 'EmN']);
 
@@ -32,6 +32,17 @@ const COMPACT = new Set(['GCl', 'PN', 'OCl', 'SNR']);                      // fi
 // real NGC/IC nebulae (Pacman, Seagull, Thor's Helmet, the Cave). Nebular types
 // survive a null mag; the ~500 mag-less galaxy pairs/clusters still drop.
 const NULLMAG_EXEMPT = new Set(['Neb', 'EmN', 'HII', 'RfN', 'SNR', 'Cl+N']);
+
+// A row people search for — it has a common name (upstream or curated) or a
+// Caldwell number — skips the magnitude rules, and these types also get past
+// KEEP. Without it the bake lost the Jewel Box, Hyades, Southern Pleiades, Double
+// Cluster, Horsehead, Coalsack and Stephan's Quintet to a missing magnitude.
+const LISTED_TYPES = new Set(['*Ass', 'DrkN']);
+// Clusters and dark nebulae with no magnitude reach the bake only as listed rows.
+const NULLMAG_LISTED = new Set(['OCl', '*Ass', 'DrkN']);
+
+const isCaldwell = (row) => /^C\d{3}$/.test(row.Name)
+  || (row.Identifiers ?? '').split(',').some((id) => /^C\s+\d+$/.test(id.trim()));
 
 const numOrNull = (v) => (v !== '' && Number.isFinite(Number(v)) ? Number(v) : null);
 
@@ -72,7 +83,36 @@ function idVariants(name) {
   return name === bare ? [name] : [name, bare];
 }
 
-function designationsFor(row, messier) {
+// OpenNGC's 'Common names' is a comma-separated list ordered alphabetically,
+// not by usage, so its first entry is regularly the name nobody says: M17 leads
+// with "Checkmark Nebula" ahead of Swan and Omega, M11 with a French phrase.
+// The title comes from curation where the alphabet gets it wrong; every other
+// name — upstream or curated — becomes a searchable designation.
+const commonNames = readCommonNames();
+const upstreamNamed = new Set();  // ids OpenNGC names at all — for the staleness check
+const nameAliasedIds = new Set(); // ids that kept a second name as a searchable alias
+
+const rejectedSeen = new Set();    // `${id}|${name}` actually dropped — for the staleness check
+
+function namesFor(row) {
+  const all = (row['Common names'] ?? '').split(',').map((s) => s.trim()).filter(Boolean);
+  if (all.length) upstreamNamed.add(row.Name);
+  const rejected = new Set((commonNames.rejected[row.Name]?.names ?? []).map((n) => n.toLowerCase()));
+  const upstream = all.filter((n) => {
+    if (!rejected.has(n.toLowerCase())) return true;
+    rejectedSeen.add(`${row.Name}|${n.toLowerCase()}`);
+    return false;
+  });
+  const name = commonNames.preferred[row.Name]?.name ?? commonNames.named[row.Name]?.name ?? upstream[0] ?? null;
+  const key = (name ?? '').toLowerCase();
+  // Curated first: a cased "Omega Nebula" then absorbs OpenNGC's "omega Nebula"
+  // in the case-insensitive dedupe downstream.
+  const aliases = [...(commonNames.extra_aliases[row.Name] ?? []), ...upstream]
+    .filter((n) => n.toLowerCase() !== key);
+  return { name, aliases };
+}
+
+function designationsFor(row, messier, nameAliases) {
   const seen = [];
   const add = (d) => {
     for (const v of [d].flat()) {
@@ -90,11 +130,12 @@ function designationsFor(row, messier) {
       if (id && KEEP_ID.some((re) => re.test(id))) add(designationVariants(id));
     }
   }
+  nameAliases.forEach(add); // last: ids stay at the head of the list
   return seen;
 }
 
 function capturable(type, mag) {
-  if (mag === null) return NULLMAG_EXEMPT.has(type);
+  if (mag === null) return NULLMAG_EXEMPT.has(type) || NULLMAG_LISTED.has(type);
   if (EXTENDED.has(type)) return mag <= 12.0;
   if (EMISSION.has(type)) return mag <= 13.0; // narrowband filter punches through LP
   return mag <= 12.5;                         // compact/bright
@@ -106,7 +147,7 @@ function difficulty(type, mag, surfBr) {
     if (surfBr < 23) return 'moderate';
     return 'dark';
   }
-  if (mag === null) return 'dark'; // only exempt nebulae reach here
+  if (mag === null) return type === 'OCl' || type === '*Ass' ? 'easy' : 'dark';
   // Common for clusters: fall back to type + integrated mag.
   if (COMPACT.has(type)) return mag <= 9 ? 'easy' : 'moderate';
   return 'moderate';
@@ -128,11 +169,14 @@ function fitsFov(sizeArcmin) {
 
 function toObject(row) {
   const type = TYPE_MAP[row.Type] ?? 'other';
-  if (!KEEP.has(row.Type) && !TYPE_EXEMPT.has(row.Name)) return null;
+  const { name, aliases } = namesFor(row);
+  const listed = name !== null || isCaldwell(row);
+  if (!KEEP.has(row.Type) && !TYPE_EXEMPT.has(row.Name) && !(listed && LISTED_TYPES.has(row.Type))) return null;
   if (!row.RA || !row.Dec) return null;
   const mag = numOrNull(row['V-Mag']) ?? numOrNull(row['B-Mag']);
-  if (mag === null && !NULLMAG_EXEMPT.has(row.Type)) return null;
-  if (mag !== null && mag > bake.magCeiling) return null;
+  if (!listed && mag === null && !NULLMAG_EXEMPT.has(row.Type)) return null;
+  if (!listed && mag !== null && mag > bake.magCeiling) return null;
+  if (aliases.length) nameAliasedIds.add(row.Name);
 
   const ra = sexagesimalToDegrees(row.RA, true);
   const dec = sexagesimalToDegrees(row.Dec, false);
@@ -142,9 +186,9 @@ function toObject(row) {
 
   return {
     id: row.Name,
-    name: row['Common names'] ? row['Common names'].split(',')[0] : null,
+    name,
     messier,
-    designations: designationsFor(row, messier),
+    designations: designationsFor(row, messier, aliases),
     ra: round(ra, 6),
     dec: round(dec, 6),
     ...bakeXYZ(ra, dec),
@@ -202,7 +246,7 @@ for (const { n, match } of overlaps) {
   if (curName && !row.name) { row.name = curName; sh2Named++; }
 }
 
-check(objects.length > 2500 && objects.length < 4000,
+check(objects.length > 7500 && objects.length < 9500,
   `object count in expected band for mag ≤ ${bake.magCeiling} (got ${objects.length})`);
 
 property('all objects on the unit sphere, coords in range', objects, (o) => {
@@ -252,17 +296,44 @@ const heart = byName.get('IC1805');
 check(heart && heart.name === 'Heart Nebula' && heart.designations.includes('Sh2-190'),
   `Heart (IC1805) named + carries Sh2-190`);
 const orion = byName.get('NGC1976');
-check(orion && orion.name === 'Great Orion Nebula' && orion.designations.includes('Sh2-281'),
-  `Orion (NGC1976) keeps its OpenNGC name, gains Sh2-281`);
+check(orion && orion.name === 'Orion Nebula' && orion.designations.includes('Great Orion Nebula')
+  && orion.designations.includes('Sh2-281'),
+  `Orion (NGC1976) titled from curation, keeps "Great Orion Nebula" searchable, gains Sh2-281`);
+
+// Common names: curation decides the title, everything else stays searchable.
+const staleNames = [commonNames.preferred, commonNames.named, commonNames.rejected, commonNames.extra_aliases]
+  .flatMap(Object.keys)
+  .filter((id) => !byName.has(id));
+check(staleNames.length === 0,
+  `every common_names.json id is in the bake${staleNames.length ? ` (stale: ${staleNames.join(', ')})` : ''}`);
+const unneeded = Object.keys(commonNames.preferred).filter((id) => !upstreamNamed.has(id));
+check(unneeded.length === 0,
+  `every curated title overrides an actual OpenNGC name${unneeded.length ? ` (no upstream name: ${unneeded.join(', ')})` : ''}`);
+const nowNamed = Object.keys(commonNames.named).filter((id) => upstreamNamed.has(id));
+check(nowNamed.length === 0,
+  `every \`named\` row still has no OpenNGC name${nowNamed.length ? ` (move to preferred: ${nowNamed.join(', ')})` : ''}`);
+const unrejected = Object.entries(commonNames.rejected)
+  .flatMap(([id, { names }]) => names.map((n) => `${id}|${n.toLowerCase()}`))
+  .filter((k) => !rejectedSeen.has(k));
+check(unrejected.length === 0,
+  `every rejected name is still in OpenNGC${unrejected.length ? ` (gone upstream: ${unrejected.join(', ')})` : ''}`);
+
+const m17 = byName.get('NGC6618');
+check(m17 && m17.name === 'Swan Nebula'
+  && ['Omega Nebula', 'Horseshoe Nebula', 'Lobster Nebula', 'Checkmark Nebula']
+    .every((n) => m17.designations.includes(n))
+  && !m17.designations.includes('omega Nebula'),
+  `M17 titled "Swan Nebula", searchable as Omega/Horseshoe/Lobster/Checkmark (${JSON.stringify(m17?.designations)})`);
+
+check(nameAliasedIds.size >= 20,
+  `${nameAliasedIds.size} rows carry an alternate common name as a searchable alias`);
 check(objects.length === byName.size,
   `merge added no rows: still ${objects.length} objects`);
 check(sh2Aliased >= 25 && sh2Aliased + sh2Unbaked.length === overlaps.length,
   `${sh2Aliased} rows gained an Sh2 alias (${sh2Named} also named); ${sh2Unbaked.length} pairs point at rows not in this bake`);
-// Both remaining cases are the mag ceiling, a separate knob: NGC 6842 (13.1) and
-// IC 63 (13.33). A failure here means the ceiling moved.
-check(sh2Unbaked.length === 2
-  && sh2Unbaked.some((p) => p.includes('NGC 6842')) && sh2Unbaked.some((p) => p.includes('IC0063')),
-  `remaining unbaked pairs are exactly the two mag-ceiling cases: ${sh2Unbaked.join(', ')}`);
+// Every overlap target clears the ceiling, so a failure here means it moved below 13.1 (NGC 6842).
+check(sh2Unbaked.length === 0,
+  `every Sh2 overlap pair lands on a baked row${sh2Unbaked.length ? ` (unbaked: ${sh2Unbaked.join(', ')})` : ''}`);
 
 // Pacman/Seagull/Thor's Helmet are named from curation; Running Man and the Cave
 // keep their OpenNGC names.
@@ -279,9 +350,39 @@ property('null-mag recovery: Pacman, Seagull, Thor\'s Helmet, Running Man, Cave,
   return (o && o.name === name && o.designations.includes(sh2) && o.capturable
     && o.mag === null && o.difficulty === 'dark') || `${id}: ${JSON.stringify(o)}`;
 });
-const nullMag = objects.filter((o) => o.mag === null);
+const nebularTypes = new Set([...NULLMAG_EXEMPT].map((t) => TYPE_MAP[t]));
+const nullMag = objects.filter((o) => o.mag === null && nebularTypes.has(o.type));
 check(nullMag.length > 100 && nullMag.length < 250 && nullMag.every((o) => o.capturable && o.difficulty !== 'easy'),
   `${nullMag.length} mag-less nebulae admitted under the exemption, all capturable, none classified easy`);
+
+// Listed rows: a common name or Caldwell number beats the magnitude and type gates.
+const caldwellPresent = new Set(objects.flatMap((o) => [o.id, ...o.designations])
+  .map((d) => d.match(/^(?:Caldwell |C)(\d+)$/)?.[1]).filter(Boolean).map(Number));
+const caldwellMissing = Array.from({ length: 109 }, (_, i) => i + 1).filter((c) => !caldwellPresent.has(c));
+check(caldwellMissing.length === 0,
+  `all 109 Caldwell objects present${caldwellMissing.length ? ` (missing C${caldwellMissing.join(', C')})` : ''}`);
+property('listed showpieces present despite no magnitude or an excluded type', [
+  ['IC2602', 'open_cluster'], ['NGC4755', 'open_cluster'], ['C041', 'open_cluster'], ['Mel111', 'open_cluster'],
+  ['C014', 'stellar_association'], ['B033', 'dark_nebula'], ['C099', 'dark_nebula'], ['HCG092', 'galaxy_group'],
+], ([id, type]) => {
+  const o = byName.get(id);
+  return (o && o.name && o.type === type) || `${id}: ${JSON.stringify(o)}`;
+});
+const jewel = byName.get('NGC4755');
+check(jewel.capturable && jewel.difficulty === 'easy',
+  `mag-less showpiece clusters are capturable and easy (Jewel Box: ${jewel.capturable}, ${jewel.difficulty})`);
+
+const ghost = byName.get('IC0063');
+check(byName.get('IC0059')?.name === 'Ghost of Cassiopeia' && ghost?.name === 'Ghost of Cassiopeia'
+  && ['Sh2-185', 'LBN 622', 'LBN 623'].every((d) => ghost.designations.includes(d)),
+  `Ghost of Cassiopeia: IC 59 + IC 63 named, IC 63 searchable as Sh2-185/LBN 622/LBN 623 (${JSON.stringify(ghost?.designations)})`);
+const flame = byName.get('NGC2024');
+const ic434 = byName.get('IC0434');
+check(flame?.name === 'Flame Nebula' && ic434 && ic434.name !== 'Flame Nebula'
+  && !ic434.designations.includes('Flame Nebula') && ic434.designations.includes('Horsehead Nebula'),
+  `Flame is NGC 2024, not IC 434; IC 434 searchable as Horsehead (${JSON.stringify(ic434?.name)})`);
+check(byName.get('IC0443')?.name === 'Jellyfish Nebula' && byName.get('IC0443').designations.includes('Gem A'),
+  `IC 443 titled Jellyfish Nebula, "Gem A" stays searchable`);
 
 const capturableCount = objects.filter((o) => o.capturable).length;
 const contextCount = objects.length - capturableCount;
@@ -299,9 +400,14 @@ const written = writeOutput(outputs.deepsky, {
       + 'placement + cosmic-neighborhood lookup; not a render layer). Positions/'
       + 'types/mags/sizes from OpenNGC. Coordinates are unit-sphere (angular). '
       + 'Each object carries a `designations` alias list (own id padded + bare, '
-      + 'Messier, NGC/IC cross-refs, and amateur cross-catalogs — Caldwell, LBN, '
-      + 'etc. — allow-list-filtered from the OpenNGC Identifiers column) for combobox '
-      + 'search. Sharpless is NOT in OpenNGC itself; Sh2 aliases and curated common '
+      + 'Messier, NGC/IC cross-refs, amateur cross-catalogs — Caldwell, LBN, '
+      + 'etc. — allow-list-filtered from the OpenNGC Identifiers column, and every '
+      + 'common name that is not the display `name`) for combobox search. OpenNGC '
+      + 'orders its common names alphabetically rather than by usage, so the title '
+      + 'comes from curation/common_names.json where the first entry is the wrong '
+      + 'one (M17 is the Swan, not the Checkmark). Rows with a common name or a '
+      + 'Caldwell number bypass mag_ceiling. Sharpless is NOT in OpenNGC '
+      + 'itself; Sh2 aliases and curated common '
       + 'names for overlap rows are merged in from the VII/20+SIMBAD crosswalk '
       + `(lib/sharpless_crosswalk.mjs); Sharpless-ONLY objects live in ${outputs.sharpless}.`,
     mag_ceiling: bake.magCeiling,

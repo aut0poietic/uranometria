@@ -78,6 +78,7 @@ export const sources = {
 // Committed, not fetched.
 export const curationFile = 'sharpless_curation.json';
 export const extrasFile = 'extras.json';
+export const commonNamesFile = 'common_names.json';
 
 // Renaming one is a breaking change for downstream consumers.
 export const outputs = {
@@ -94,11 +95,13 @@ export const outputs = {
 export const bake = {
   // A star is kept if mag <= magCutoff OR its HIP appears in a constellation line.
   magCutoff: 6.5,
-  // Infinity = full catalog.
-  magCeiling: 13.0,
+  // Deep enough for 80–100 mm stacked imaging; consumers filter by their own
+  // aperture. Past 15 the galaxies are sub-arcminute smudges. Infinity = full catalog.
+  magCeiling: 15.0,
   // LBN-only gate, arcmin. Gates on extent, not Lynds' brightness class — that
-  // 1965 plate index anticorrelates with what a modern sensor stacks. 0 admits all 737.
-  lbnMinDiamArcmin: 30,
+  // 1965 plate index anticorrelates with what a modern sensor stacks. 0 admits all 735:
+  // the small ones are what longer focal lengths go after.
+  lbnMinDiamArcmin: 0,
   // true restores the proper > Bayer > Flamsteed bake.
   labelBayerFallback: false,
   schemaVersion: 1,

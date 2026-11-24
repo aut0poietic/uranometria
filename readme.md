@@ -77,11 +77,20 @@ with no length at all.
 | Lynds 1965 (VizieR VII/9) | `lbn_vii9.dat` | `catalog-lbn.json` |
 | SIMBAD TAP (identifiers, positions) | `simbad_sh2_idents.csv`, `simbad_sh2_pos.csv` | Sharpless crosswalk, LBN dedup |
 
-Two curation files are hand-authored, not fetched, and committed:
+Three curation files are hand-authored, not fetched, and committed:
 
 - `curation/sharpless_curation.json` resolves the positional overlap flags the
   Sh2 ↔ OpenNGC crosswalk cannot decide on its own, and supplies common names
   and the occasional designation no source carries (Sh2-108 ← IC 1318).
+- `curation/common_names.json` picks the display name for OpenNGC rows carrying
+  several common names — that column is alphabetical, not by usage, so its first
+  entry gave M17 "Checkmark Nebula" and M11 a French phrase. Every name that
+  isn't the title stays searchable in `designations`, so this file only decides
+  the label (and adds the occasional name no source carries, like M17's
+  "Horseshoe Nebula"). It also names rows OpenNGC leaves unnamed (IC 59/63, the
+  Ghost of Cassiopeia) and rejects wrong upstream names (OpenNGC puts "Flame
+  Nebula" on IC 434; the Flame is NGC 2024). A named row skips the magnitude
+  ceiling, so naming an object is how a faint favourite gets into the bake.
 - `curation/extras.json` holds targets **no** source carries, for objects whose
   catalog was never published as a machine-readable table. The Propeller
   (DWB 111 / Simeis 57) is the case that forced it: SIMBAD indexes the
@@ -97,9 +106,9 @@ Two curation files are hand-authored, not fetched, and committed:
 | `stars.json` | 8,922 stars: mag ≤ 6.5 ∪ every constellation-line HIP. `id` = HIP where present; optional `label` (proper names only, 355) and `ci` (B−V color index). |
 | `constellations.json` | 88 constellations, polylines expanded to 695 `{star1, star2}` HIP segments. |
 | `catalog-stars.json` | 355 proper-named stars as catalog rows — exactly the `stars.json` labeled set by construction, joined back to HYG only for designations. Spaceless `HIP91262` ids, HD fallback for 7 HIP-less binary companions. |
-| `catalog-opengc.json` | 3,234 deep-sky objects to mag ≤ 13 plus mag-less nebular types, 2,015 flagged `capturable`. Carries `designations`, `difficulty`, per-scope `resolves_on`/`fits_fov`, and `redshift`. |
+| `catalog-opengc.json` | 8,318 deep-sky objects to mag ≤ 15 plus mag-less nebular types, plus every named or Caldwell object whatever its magnitude, 2,027 flagged `capturable` (the rest are deeper than the configured smart scopes reach; consumers filter by their own aperture). Carries `designations`, `difficulty`, per-scope `resolves_on`/`fits_fov`, and `redshift`. |
 | `catalog-sharpless.json` | 261 Sharpless-only HII regions (`SH2-<n>` keys) — the Sh2 objects with no OpenNGC counterpart, so they merge into a combined catalog with zero collision risk. The 52 excluded overlaps ride along in `metadata.overlap_pairs`. |
-| `catalog-lbn.json` | 515 LBN-only bright nebulae (`LBN<n>` keys) — the Lynds objects with no NGC/IC/Sh2/Ced counterpart, gated to ≥ 30′ of angular extent. Carries `lynds_brightness` (1–6, the 1965 plate index) as data, never as a filter. |
+| `catalog-lbn.json` | 735 LBN-only bright nebulae (`LBN<n>` keys) — every Lynds object with no NGC/IC/Sh2/Ced counterpart. Carries `lynds_brightness` (1–6, the 1965 plate index) as data, never as a filter. |
 | `catalog-extras.json` | Hand-entered targets no catalog source carries. Currently 1 (the Propeller). The least authoritative output here — kept separate so consumers can weight it accordingly, and every value is documented in `metadata.provenance`. |
 | `messier.json` | 110-object Messier backdrop (positions/types/mags from OpenNGC, incl. the M102 → NGC 5866 mapping). |
 
@@ -116,9 +125,9 @@ required CDS citations are in [LICENSE.md](LICENSE.md).
 ## Configuration
 
 `config.mjs` holds every tunable: source URLs and hashes, output filenames, the
-magnitude cutoffs (`bake.magCutoff` 6.5 for stars, `bake.magCeiling` 13.0 for
-deep-sky), `bake.lbnMinDiamArcmin` (30′, the LBN admission gate — set it to 0 to
-admit all 737 LBN-only rows), the smart-scope optics behind
+magnitude cutoffs (`bake.magCutoff` 6.5 for stars, `bake.magCeiling` 15.0 for
+deep-sky), `bake.lbnMinDiamArcmin` (0, admitting all 735 LBN-only rows — raise it
+to gate on angular extent), the smart-scope optics behind
 `resolves_on`/`fits_fov`, the
 `labelBayerFallback` flag that switches star labels between proper-names-only
 and the full proper → Bayer → Flamsteed precedence, and the OpenNGC type map.
